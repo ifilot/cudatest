@@ -25,60 +25,21 @@
  *                                                                                  *
  ************************************************************************************/
 
-#include <iostream>
+#include "card_manager.h"
 
-#include "add.h"
+CardManager::CardManager() {}
 
-// Kernel function to add the elements of two arrays
-__global__
-void add(int n, float *x, float *y) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = blockDim.x * gridDim.x;
-    for (int i = index; i < n; i += stride) {
-        y[i] = x[i] + y[i];
-    }
-}
+void CardManager::probe_cards() {
+    int nDevices;
 
-int run_cuda() {
-    int N = 1<<20;
-    float *x, *y;
-
-    // Allocate Unified Memory – accessible from CPU or GPU
-    cudaMallocManaged(&x, N*sizeof(float));
-    cudaMallocManaged(&y, N*sizeof(float));
-
-    // initialize x and y arrays on the host
-    for (int i = 0; i < N; i++) {
-        x[i] = 1.0f;
-        y[i] = 2.0f;
-    }
-
-    // Run kernel on 1M elements on the GPU
-    int blockSize = 256;
-    int numBlocks = (N + blockSize - 1) / blockSize;
-    add<<<numBlocks, blockSize>>>(N, x, y);
-    cudaError_t errSync  = cudaGetLastError();
-    cudaError_t errAsync = cudaDeviceSynchronize();
-    if (errSync != cudaSuccess) {
-        printf("Sync kernel error: %s\n", cudaGetErrorString(errSync));
-    }
-    if (errAsync != cudaSuccess) {
-        printf("Async kernel error: %s\n", cudaGetErrorString(errAsync));
-    }
-
-    // Wait for GPU to finish before accessing on host
-    cudaDeviceSynchronize();
-
-    // Check for errors (all values should be 3.0f)
-    float maxError = 0.0f;
-    for (int i = 0; i < N; i++){
-        maxError = fmax(maxError, fabs(y[i]-3.0f));
-    }
-    std::cout << "Max error: " << maxError << std::endl;
-
-    // Free memory
-    cudaFree(x);
-    cudaFree(y);
-
-    return 0;
+	cudaGetDeviceCount(&nDevices);
+	for (int i = 0; i < nDevices; i++) {
+		cudaDeviceProp prop;
+		cudaGetDeviceProperties(&prop, i);
+		std::cout << "Device Number: " << i << std::endl;
+		std::cout << "  Device name: " << prop.name << std::endl;
+		std::cout << "  Memory Clock Rate (KHz): " << prop.memoryClockRate << std::endl;
+		std::cout << "  Memory Bus Width (bits): " << prop.memoryBusWidth << std::endl;
+		std::cout << "  Peak Memory Bandwidth (GB/s): " << 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6 << std::endl << std::endl;
+	}
 }
